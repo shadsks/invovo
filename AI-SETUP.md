@@ -56,10 +56,11 @@ Settings ships with sensible defaults, but model slugs on NVIDIA change. If a fe
 
 ## Deploying to Vercel (production — no terminal needed)
 
-In production the local `ai-proxy.mjs` is replaced by a Vercel **serverless function** (`api/[...slug].js`, already in this repo). Your key lives in a Vercel **environment variable**, not in any file. The static app auto-detects it's deployed and talks to `/api` on the same domain, so AI keeps working with nothing running on your machine.
+In production the local `ai-proxy.mjs` is replaced by Vercel **serverless functions** (`api/health.js` and `api/v1/chat/completions.js`, already in this repo). Your key lives in a Vercel **environment variable**, not in any file. The static app auto-detects it's deployed and talks to `/api` on the same domain, so AI keeps working with nothing running on your machine.
 
 ### What's already wired
-- `api/[...slug].js` — the serverless proxy (handles `/api/health` and `/api/v1/chat/completions`).
+- `api/health.js` — handles `GET /api/health` (the **Test connection** check; reports whether the key env var is set).
+- `api/v1/chat/completions.js` — the proxy that forwards `POST /api/v1/chat/completions` to NVIDIA with your key.
 - `vercel.json` — gives the AI function a 60-second `maxDuration` (the default 10s can cut off slower vision/reasoning models, which shows up in the browser as "Failed to fetch").
 - The app auto-uses `/api` when served from a real domain (and the local proxy when run from `file://` or `localhost`).
 - Your local key file is a **dotfile** (`.ai-proxy.config.json`), so Vercel never uploads it; the function reads the key from the `NVIDIA_API_KEY` env var instead. `.gitignore` / `.vercelignore` list it too.
