@@ -97,5 +97,33 @@ vercel --prod     # deploy
 
 If Test connection fails: the `NVIDIA_API_KEY` env var isn't set on Vercel (or you didn't redeploy after adding it). Re-add it and run `vercel --prod` again, or hit **Redeploy** in the dashboard.
 
-### Cloudflare Worker (alternative)
-Same idea: a Worker that reads the key from a secret and forwards to NVIDIA. Set **Proxy URL** in Settings to the Worker's URL. Ask and I'll scaffold it.
+## Deploying to Cloudflare Pages (100% free — free env vars, no Pro plan)
+
+If Vercel asks you to upgrade to Pro to add an environment variable, use **Cloudflare Pages** instead. It's free, environment variables/secrets are free, and serverless functions are free. The proxy is a single **`_worker.js`** at the project root (Cloudflare "Advanced Mode") that handles `/api/health` + `/api/v1/chat/completions` and serves everything else as static files — the same paths the app calls, so nothing in the app changes.
+
+> **Important — the dashboard "Upload assets" (drag-and-drop) does NOT run `_worker.js`.** It only serves static files, so the proxy routes return **404** and AI fails with "AI 404 / proxy returned 404". To activate the proxy you must deploy with **Wrangler** (below) or connect a **Git** repo. There is no drag-and-drop path that runs server-side code.
+
+### Deploy with Wrangler (free, no GitHub) — this is what activates the proxy
+From the project folder:
+```
+npx wrangler login                     # opens a browser; authorize (free account)
+npx wrangler pages deploy .            # pick your existing project (keeps the URL) or create one
+```
+`_worker.js` is deployed as a real Worker (no build step needed). Then give it the key (free):
+```
+npx wrangler pages secret put NVIDIA_API_KEY --project-name <your-project>   # paste your nvapi-... key
+npx wrangler pages deploy . --project-name <your-project>                    # redeploy so the secret applies
+```
+(You can instead set `NVIDIA_API_KEY` in the dashboard → project → Settings → Variables and Secrets, then re-run `wrangler pages deploy .`.)
+
+Do NOT include `functions/` or `.wrangler/` in the folder — they're already removed. `wrangler` ignores `.wrangler/` automatically.
+
+### Or connect Git (also activates the proxy)
+Push this folder to a GitHub repo → Cloudflare **Workers & Pages → Create → Pages → Connect to Git** → select the repo → Framework preset **None**, no build command, output dir `/` → add the `NVIDIA_API_KEY` variable → Deploy.
+
+### After deploy
+1. Open your `*.pages.dev` URL.
+2. Visit `https://<app>.pages.dev/api/health` → expect `{"ok":true,"key":true}`. `key:false` = the variable isn't set / you didn't redeploy after adding it.
+3. **Settings → AI features:** Proxy URL already reads `/api`. **Test connection** (green) → **Enable** → **Save** → try a feature.
+
+Your local key file `.ai-proxy.config.json` is a dotfile, so Cloudflare won't publish it (confirm `https://<app>.pages.dev/.ai-proxy.config.json` 404s). The key in production comes only from the `NVIDIA_API_KEY` variable.
